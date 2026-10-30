@@ -1,0 +1,15 @@
+import {test} from "node:test";
+import {strict as assert} from "node:assert";
+import {safeDeploymentUrl,deploymentFromPublicHtml,permitsEmbedding,resolvePublicTemplatePreview} from "../src/public-template-preview.mjs";
+const page=(body)=>new Response(body,{headers:{"Content-Type":"text/html"}});
+const deployment=(status=200,headers={})=>new Response("<html>test</html>",{status,headers:{"Content-Type":"text/html",...headers}});
+const id="XQxxv76lK5w";
+test("explicit deployment anchor",()=>assert.equal(deploymentFromPublicHtml('<a href="https://preview.vercel.app/">Open Original</a>'),"https://preview.vercel.app/"));
+test("explicit iframe",()=>assert.equal(deploymentFromPublicHtml('<iframe src="https://preview.vercel.app/">'),"https://preview.vercel.app/"));
+test("ignore unrelated link",()=>assert.equal(deploymentFromPublicHtml('<a href="https://preview.vercel.app/">Source code</a>'),null));
+test("reject unsafe hosts",()=>{for(const url of ["http://preview.vercel.app","https://vercel.app","https://preview.vercel.app.bad.com","https://localhost","javascript:alert(1)","https://user:pass@preview.vercel.app"])assert.equal(safeDeploymentUrl(url),null);});
+test("missing deployment is unavailable",async()=>{const result=await resolvePublicTemplatePreview(id,{fetcher:async()=>page("<html/>")});assert.equal(result.status,"unavailable");assert.equal(result.previewUrl,null);});
+test("valid deployment returned without credentials",async()=>{let called=0;const fetcher=async(_u,init)=>{assert.equal(init.headers.Accept,"text/html");return ++called===1?page('<a href="https://preview.vercel.app/">Open Original</a>'):deployment();};const result=await resolvePublicTemplatePreview(id,{fetcher});assert.equal(result.status,"ready");assert.equal(result.previewUrl,"https://preview.vercel.app/");});
+test("XFO deny blocks embedding",()=>assert.equal(permitsEmbedding(new Headers({"X-Frame-Options":"DENY"}),"https://demo.com"),false));
+test("CSP frame ancestors enforced",()=>{assert.equal(permitsEmbedding(new Headers({"Content-Security-Policy":"frame-ancestors 'none'"}),"https://demo.com"),false);assert.equal(permitsEmbedding(new Headers({"Content-Security-Policy":"frame-ancestors https://demo.com"}),"https://demo.com"),true);});
+test("invalid IDs rejected",async()=>{await assert.rejects(()=>resolvePublicTemplatePreview("../internal"),TypeError);});

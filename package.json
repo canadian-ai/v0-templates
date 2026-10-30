@@ -1,0 +1,13 @@
+{
+  "name": "@canadian-ai/v0-templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "repro:catalog": "node scripts/repro-public-templates.mjs"
+  }
+}
